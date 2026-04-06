@@ -3,39 +3,112 @@
 import { Button } from "@/app/components/ui/Button";
 import { Input } from "@/app/components/ui/Input";
 import { WaveAnimation } from "@/app/components/ui/WaveAnimation";
+import { useAppStore } from "@/app/lib/store";
 import { formatSeconds } from "@/app/lib/utils";
 import { ArrowLeft, Check, MapPin, Play, RotateCcw, Square } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function PostConfirmPage() {
   const router = useRouter();
+  const { recording, setRecording, location, setLocation } = useAppStore();
   const [placeName, setPlaceName] = useState("");
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [locationLabel, setLocationLabel] = useState("位置情報を取得中...");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
-  const mockLocation = "東京都渋谷区神宮前";
-  const duration = 30;
+  const duration = recording ? Math.ceil(recording.durationMs / 1000) : 30;
+
+  useEffect(() => {
+    if (!recording) {
+      router.replace("/record");
+      return;
+    }
+    previewUrlRef.current = URL.createObjectURL(recording.blob);
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, [recording, router]);
+
+  useEffect(() => {
+    if (location) {
+      setLocationLabel(`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`);
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          setLocationLabel(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+        },
+        () => setLocationLabel("位置情報を取得できませんでした"),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  }, [location, setLocation]);
+
+  const togglePreview = () => {
+    if (!previewUrlRef.current) return;
+    if (isPreviewPlaying) {
+      audioRef.current?.pause();
+      setIsPreviewPlaying(false);
+    } else {
+      if (!audioRef.current) {
+        audioRef.current = new Audio(previewUrlRef.current);
+        audioRef.current.onended = () => setIsPreviewPlaying(false);
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
+      setIsPreviewPlaying(true);
+    }
+  };
 
   const handlePost = async () => {
     if (!placeName.trim()) {
       setError("場所名を入力してください");
       return;
     }
+    if (!recording) {
+      setError("録音データがありません");
+      return;
+    }
+    if (!location) {
+      setError("位置情報が取得できていません");
+      return;
+    }
+
     setError("");
     setIsPosting(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const formData = new FormData();
+      const ext = recording.mimeType.includes("webm") ? "webm" : "mp4";
+      formData.append("audio", new File([recording.blob], `recording.${ext}`, { type: recording.mimeType }));
+      formData.append("metadata", JSON.stringify({
+        place_name: placeName.trim(),
+        latitude: location.latitude,
+        longitude: location.longitude,
+        duration_ms: recording.durationMs,
+        recorded_at: new Date().toISOString(),
+      }));
 
-    setIsPosting(false);
-    setIsSuccess(true);
+      const res = await fetch("/api/posts", { method: "POST", body: formData });
+      const data = await res.json();
 
-    setTimeout(() => {
-      router.push("/");
-    }, 1000);
+      if (!res.ok) throw new Error(data.error || "投稿に失敗しました");
+
+      setRecording(null);
+      setIsPosting(false);
+      setIsSuccess(true);
+
+      setTimeout(() => router.push("/"), 1000);
+    } catch (err) {
+      setIsPosting(false);
+      setError(err instanceof Error ? err.message : "投稿に失敗しました");
+    }
   };
 
   if (isSuccess) {
@@ -68,9 +141,10 @@ export default function PostConfirmPage() {
     );
   }
 
+  if (!recording) return null;
+
   return (
     <div className="flex min-h-dvh flex-col bg-dark-gray">
-      {/* Header */}
       <header className="flex h-12 items-center justify-between px-4">
         <Link
           href="/record"
@@ -84,12 +158,11 @@ export default function PostConfirmPage() {
       </header>
 
       <div className="flex-1 px-6 pt-4">
-        {/* Preview playback */}
         <section className="mb-6">
           <div className="rounded-xl bg-dark-navy p-4">
             <div className="mb-3 flex items-center justify-between">
               <button
-                onClick={() => setIsPreviewPlaying(!isPreviewPlaying)}
+                onClick={togglePreview}
                 className="flex items-center gap-3 text-off-white"
                 aria-label={isPreviewPlaying ? "一時停止" : "プレビュー再生"}
               >
@@ -119,30 +192,18 @@ export default function PostConfirmPage() {
           </div>
         </section>
 
-        {/* Location */}
         <section className="mb-6">
           <div className="mb-2 flex items-center gap-2 text-sm text-gray">
             <MapPin size={14} />
             位置情報
           </div>
           <div className="rounded-xl bg-dark-navy p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm text-off-white">{mockLocation}</span>
-              <button className="text-xs text-soft-blue hover:underline">
-                地図で修正
-              </button>
-            </div>
-            {/* Mini map placeholder */}
-            <div className="flex h-28 items-center justify-center rounded-lg bg-deep-black">
-              <div className="flex flex-col items-center gap-1">
-                <MapPin size={20} className="text-soft-blue" />
-                <span className="text-[10px] text-muted">地図プレビュー</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-off-white">{locationLabel}</span>
             </div>
           </div>
         </section>
 
-        {/* Place name input */}
         <section className="mb-8">
           <Input
             label="場所名"
@@ -157,12 +218,14 @@ export default function PostConfirmPage() {
         </section>
       </div>
 
-      {/* Action buttons */}
       <div className="flex gap-3 px-6 pb-8">
         <Button
           variant="outline"
           className="flex-1 gap-2"
-          onClick={() => router.push("/record")}
+          onClick={() => {
+            setRecording(null);
+            router.push("/record");
+          }}
         >
           <RotateCcw size={16} />
           録り直す

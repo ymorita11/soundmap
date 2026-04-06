@@ -1,6 +1,7 @@
 "use client";
 
 import { WaveAnimation } from "@/app/components/ui/WaveAnimation";
+import { useAppStore } from "@/app/lib/store";
 import { formatSeconds } from "@/app/lib/utils";
 import { ArrowLeft, Mic, Square } from "lucide-react";
 import Link from "next/link";
@@ -11,12 +12,15 @@ type RecordingState = "idle" | "recording" | "recorded";
 
 export default function RecordPage() {
   const router = useRouter();
+  const { setRecording, setLocation } = useAppStore();
   const [state, setState] = useState<RecordingState>("idle");
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const mimeTypeRef = useRef<string>("audio/webm");
+  const startTimeRef = useRef<number>(0);
 
   const maxDuration = 30;
 
@@ -41,6 +45,7 @@ export default function RecordPage() {
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/mp4";
+      mimeTypeRef.current = mimeType;
 
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
@@ -51,12 +56,21 @@ export default function RecordPage() {
       };
 
       recorder.onstop = () => {
-        // Audio blob is ready in chunksRef
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const durationMs = Math.min(Date.now() - startTimeRef.current, maxDuration * 1000);
+        setRecording({ blob, mimeType, durationMs });
       };
 
       recorder.start();
+      startTimeRef.current = Date.now();
       setState("recording");
       setElapsed(0);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => setLocation(null),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
 
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => {
@@ -70,7 +84,7 @@ export default function RecordPage() {
     } catch {
       alert("マイクの許可が必要です。ブラウザの設定から許可してください。");
     }
-  }, [stopRecording]);
+  }, [stopRecording, setRecording, setLocation]);
 
   useEffect(() => {
     return () => {

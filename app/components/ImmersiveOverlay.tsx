@@ -16,9 +16,15 @@ export function ImmersiveOverlay({ post, onClose }: ImmersiveOverlayProps) {
   const [remaining, setRemaining] = useState(totalSeconds);
   const [isClosing, setIsClosing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playCountSentRef = useRef(false);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setTimeout(onClose, 500);
   }, [onClose]);
 
@@ -27,10 +33,22 @@ export function ImmersiveOverlay({ post, onClose }: ImmersiveOverlayProps) {
       navigator.vibrate(50);
     }
 
+    if (post.audio_url && !post.audio_url.startsWith("/mock")) {
+      const audio = new Audio(post.audio_url);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    }
+
     intervalRef.current = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
           if (intervalRef.current) clearInterval(intervalRef.current);
+
+          if (!playCountSentRef.current) {
+            playCountSentRef.current = true;
+            fetch(`/api/posts/${post.id}/play`, { method: "PATCH" }).catch(() => {});
+          }
+
           setTimeout(() => handleClose(), 300);
           return 0;
         }
@@ -40,8 +58,12 @@ export function ImmersiveOverlay({ post, onClose }: ImmersiveOverlayProps) {
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
-  }, [handleClose]);
+  }, [handleClose, post.audio_url, post.id]);
 
   return (
     <div

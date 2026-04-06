@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 
@@ -34,10 +35,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${inter.variable} ${notoSansJP.variable}`}>
-      <body className="min-h-dvh overflow-hidden">
-        {children}
-      </body>
-    </html>
+    <ClerkProvider afterSignOutUrl="/" signInUrl="/sign-in" signUpUrl="/sign-up">
+      <html lang="ja" className={`${inter.variable} ${notoSansJP.variable}`}>
+        <body className="min-h-dvh overflow-hidden">
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

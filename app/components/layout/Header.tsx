@@ -1,6 +1,10 @@
 "use client";
 
-import { User } from "lucide-react";
+import {
+  Show,
+  SignInButton,
+  UserButton,
+} from "@clerk/nextjs";
 import Link from "next/link";
 
 interface HeaderProps {
@@ -14,13 +18,26 @@ export function Header({ showProfile = true }: HeaderProps) {
         SoundMap
       </Link>
       {showProfile && (
-        <Link
-          href="/auth"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-dark-navy text-gray transition-colors hover:text-off-white"
-          aria-label="プロフィール"
-        >
-          <User size={18} />
-        </Link>
+        <div className="flex items-center">
+          <Show
+            when="signed-in"
+            fallback={
+              <SignInButton mode="modal">
+                <button className="flex h-8 items-center gap-2 rounded-full bg-dark-navy px-4 text-sm text-gray transition-colors hover:text-off-white">
+                  ログイン
+                </button>
+              </SignInButton>
+            }
+          >
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8 rounded-full",
+                },
+              }}
+            />
+          </Show>
+        </div>
       )}
     </header>
   );
