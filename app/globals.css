@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --color-deep-black: #0a0a0f;
+  --color-dark-gray: #121212;
+  --color-dark-navy: #1a1a2e;
+  --color-navy: #16213e;
+  --color-soft-blue: #5B8DEF;
+  --color-amber: #E8A838;
+  --color-off-white: #e0e0e0;
+  --color-gray: #888888;
+  --color-muted: #555555;
+  --color-soft-red: #EF5B5B;
+  --color-soft-green: #5BEF8D;
+  --color-border: #2a2a3e;
+
+  --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Inter", ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-dark-gray);
+  color: var(--color-off-white);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-soft-blue);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-soft-blue);
+    color: white;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes wave-bar {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: var(--wave-height, 20px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
